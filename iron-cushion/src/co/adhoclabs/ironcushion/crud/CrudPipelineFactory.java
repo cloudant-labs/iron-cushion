@@ -6,7 +6,6 @@ import java.util.List;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpClientCodec;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkPipelineFactory;

@@ -7,11 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.handler.codec.base64.Base64;
-import org.jboss.netty.util.CharsetUtil;
-
 import co.adhoclabs.ironcushion.BenchmarkResults.BulkInsertBenchmarkResults;
 import co.adhoclabs.ironcushion.BenchmarkResults.CrudBenchmarkResults;
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics;
@@ -122,9 +117,12 @@ public class Benchmark {
 		
 		String authString = databaseUri.getUserInfo();
 		if (authString == null) authString = "";
+		
+		int port = databaseUri.getPort();
+		if (port < 0) port = 80;
 	    
 		InetSocketAddress databaseAddress = new InetSocketAddress(
-				databaseUri.getHost(), databaseUri.getPort());
+				databaseUri.getHost(), port);
 		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString);
 		String[] words = ValueGenerator.createWords(rng);
 		

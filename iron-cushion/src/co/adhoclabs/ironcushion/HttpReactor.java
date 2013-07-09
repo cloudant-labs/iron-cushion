@@ -5,15 +5,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.base64.Base64;
-import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpVersion;
-import org.jboss.netty.util.CharsetUtil;
 
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics;
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertDocumentGenerator;
@@ -51,18 +43,11 @@ public class HttpReactor {
 						Executors.newCachedThreadPool(),
 						Executors.newCachedThreadPool()));
 			clientBootstrap.setPipelineFactory(channelPipelineFactory);
-			
-			/*for (int i = 0; i < numConnections; ++i) {
-				clientBootstrap.connect(databaseAddress);
-			}*/
-		    
-		    //System.out.println("Database address: " + databaseAddress);
 		    
 		    for (int i = 0; i < numConnections; ++i) {
-//		    	clientBootstrap.connect(databaseAddress).awaitUninterruptibly().getChannel()
-//		        .write(request).awaitUninterruptibly();
 		    	clientBootstrap.connect(databaseAddress);
 		    }
+		    
 			// Wait for all connections to complete their tasks.
 			channelPipelineFactory.getCountDownLatch().await();
 		    //System.out.println("HAZAAAA");
