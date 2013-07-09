@@ -12,6 +12,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.codec.base64.Base64;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
@@ -45,14 +46,19 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	
 	private JSONObject document;
 	private int crudOperationsCompleted;
+	private final String authString;
+	private final String host;
 	
 	public CrudHandler(CrudConnectionStatistics connectionStatistics,
-			CrudOperations crudOperations, String crudPath, CountDownLatch countDownLatch) {
+			CrudOperations crudOperations, String crudPath, CountDownLatch countDownLatch, String authString, String host) {
 		super(countDownLatch);
 		
 		this.connectionStatistics = connectionStatistics;
 		this.crudOperations = crudOperations;
 		this.crudPath = crudPath;
+		
+		this.authString = authString;
+		this.host = host;
 		
 		this.sendCreateDataChannelFuture = new SendCreateDataChannelFuture();
 		this.sendReadDataChannelFuture = new SendReadDataChannelFuture();
@@ -136,10 +142,20 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			ChannelFutureListener channelFutureListener) {
 		HttpRequest request = new DefaultHttpRequest(
 				HttpVersion.HTTP_1_1, method, documentPath);
+		
+
+		request.addHeader(HttpHeaders.Names.HOST, host);
 		// Assign the headers.
 		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
+		
+	    if (authString != "") {
+			ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(authString, CharsetUtil.UTF_8);
+		    ChannelBuffer encodedAuthChannelBuffer = Base64.encode(authChannelBuffer);
+		    request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic " + encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
+	    }
+	    
 		if (contentBuffer != null) {
 			request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, contentBuffer.readableBytes());
 			// Assign the body if present.

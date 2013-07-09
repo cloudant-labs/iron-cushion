@@ -3,6 +3,7 @@ package co.adhoclabs.ironcushion.bulkinsert;
 import java.util.concurrent.CountDownLatch;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -11,6 +12,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.codec.base64.Base64;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -18,6 +20,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.jboss.netty.util.CharsetUtil;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkHandler;
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics.RunningConnectionTimer;
@@ -32,24 +35,28 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	private final BulkInsertConnectionStatistics connectionStatistics;
 	private final BulkInsertDocumentGenerator bulkInsertDocumentGenerator;
 	private final String bulkInsertPath;
-	
+
 	private final SendDataChannelFuture sendDataChannelFuture;
-	
+
 	private int insertOperationsCompleted;
 	private boolean readingChunks;
 	private int numJsonBytesReceived;
-	
-	public BulkInsertHandler(BulkInsertConnectionStatistics connectionStatistics,
-			BulkInsertDocumentGenerator bulkInsertDocumentGenerator, String bulkInsertPath,
-			CountDownLatch countDownLatch) {
+	private final String authString;
+	private final String host;
+
+	public BulkInsertHandler(
+			BulkInsertConnectionStatistics connectionStatistics,
+			BulkInsertDocumentGenerator bulkInsertDocumentGenerator,
+			String bulkInsertPath, CountDownLatch countDownLatch,
+			String authString, String host) {
 		super(countDownLatch);
-		
+
 		this.connectionStatistics = connectionStatistics;
 		this.bulkInsertDocumentGenerator = bulkInsertDocumentGenerator;
 		this.bulkInsertPath = bulkInsertPath;
-		
+		this.authString = authString;
 		this.sendDataChannelFuture = new SendDataChannelFuture();
-		
+		this.host = host;
 		this.insertOperationsCompleted = 0;
 	}
 
@@ -58,14 +65,15 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	 */
 	private final class SendDataChannelFuture implements ChannelFutureListener {
 		@Override
-		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+		public void operationComplete(ChannelFuture channelFuture)
+				throws Exception {
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteProcessing();
 			}
 		}
 	}
-	
+
 	private void writeNextBulkInsertOrClose(Channel channel) {
 		if (insertOperationsCompleted < bulkInsertDocumentGenerator.size()) {
 			// Perform the next bulk insert operation.
@@ -75,48 +83,67 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 			close(channel);
 		}
 	}
-	
+
 	private void writeNextBulkInsert(Channel channel) {
 		connectionStatistics.startLocalProcessing();
-		HttpRequest request = new DefaultHttpRequest(
-				HttpVersion.HTTP_1_1, HttpMethod.POST, bulkInsertPath);
-		ChannelBuffer insertBuffer = bulkInsertDocumentGenerator.getBuffer(insertOperationsCompleted);
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
+				HttpMethod.POST, bulkInsertPath);
+
+		request.addHeader(HttpHeaders.Names.HOST, host);
+		ChannelBuffer insertBuffer = bulkInsertDocumentGenerator
+				.getBuffer(insertOperationsCompleted);
 		// Assign the headers.
-		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
-		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
+		request.setHeader(HttpHeaders.Names.CONNECTION,
+				HttpHeaders.Values.KEEP_ALIVE);
+		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING,
+		// HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
-		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, insertBuffer.readableBytes());
+		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH,
+				insertBuffer.readableBytes());
+
+		if (authString != "") {
+			ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(
+					authString, CharsetUtil.UTF_8);
+			ChannelBuffer encodedAuthChannelBuffer = Base64
+					.encode(authChannelBuffer);
+			request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic "
+					+ encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
+		}
+
 		// Assign the body.
 		request.setContent(insertBuffer);
+
 		connectionStatistics.sentJsonBytes(insertBuffer.readableBytes());
-		
+
 		connectionStatistics.startSendData();
 		ChannelFuture channelFuture = channel.write(request);
 		channelFuture.addListener(sendDataChannelFuture);
 		insertOperationsCompleted++;
 	}
-	
+
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) {
 		// Immediately perform the first bulk insert upon connecting.
 		writeNextBulkInsert(e.getChannel());
 	}
-	
+
 	@Override
-	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e)
+			throws Exception {
 		connectionStatistics.startReceiveData();
-		
+
 		Channel channel = e.getChannel();
 		if (!readingChunks) {
 			HttpResponse response = (HttpResponse) e.getMessage();
-			
+
 			if (response.isChunked()) {
 				numJsonBytesReceived = 0;
 				readingChunks = true;
 			} else {
 				ChannelBuffer content = response.getContent();
 				if (content.readable()) {
-					connectionStatistics.receivedJsonBytes(content.readableBytes());
+					connectionStatistics.receivedJsonBytes(content
+							.readableBytes());
 					writeNextBulkInsertOrClose(channel);
 				}
 			}
