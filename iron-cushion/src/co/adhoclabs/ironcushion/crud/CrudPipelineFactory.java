@@ -21,37 +21,42 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 	private final String crudPath;
 
 	private int connectionNum;
-	
+	private final String authString;
+	private final String host;
+
 	public CrudPipelineFactory(int numConnections,
-			List<CrudOperations> allCrudOperations, String crudPath) {
+			List<CrudOperations> allCrudOperations, String crudPath, String authString, String host) {
 		super(numConnections);
-		
+
 		this.allConnectionStatistics = new ArrayList<CrudConnectionStatistics>(numConnections);
 		for (int i = 0; i < numConnections; ++i) {
 			this.allConnectionStatistics.add(new CrudConnectionStatistics());
 		}
 		this.allCrudOperations = allCrudOperations;
 		this.crudPath = crudPath;
-		
+		this.authString = authString;
+		this.host = host;
+
 		connectionNum = 0;
 	}
-	
+
 	/**
 	 * @return the {@link CrudConnectionStatistics} used by connections
 	 */
 	public List<CrudConnectionStatistics> getAllConnectionStatistics() {
 		return allConnectionStatistics;
 	}
-	
+
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {
 		CrudConnectionStatistics connectionStatistics = allConnectionStatistics.get(connectionNum);
 		CrudOperations crudOperations = allCrudOperations.get(connectionNum);
 		connectionNum++;
-		return Channels.pipeline(
+		ChannelPipeline pipeline =  Channels.pipeline(
 				new HttpClientCodec(),
 				// new HttpContentDecompressor(),
-				new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch)
+				new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch, authString, host)
 				);
+		return pipeline;
 	}
 }

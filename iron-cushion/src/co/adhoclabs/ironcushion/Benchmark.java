@@ -114,9 +114,19 @@ public class Benchmark {
 		} catch (URISyntaxException e) {
 			throw new BenchmarkException(e);
 		}
+		
+		String authString = databaseUri.getUserInfo();
+		if (authString == null) authString = "";
+		
+		
+		System.out.println(parsedArguments.databaseAddress);
+		
+		int port = databaseUri.getPort();
+		if (port < 0) port = 80;
+	    
 		InetSocketAddress databaseAddress = new InetSocketAddress(
-				databaseUri.getHost(), databaseUri.getPort());
-		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress);
+				databaseUri.getHost(), port);
+		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString);
 		String[] words = ValueGenerator.createWords(rng);
 		
 		// Perform the bulk inserts.

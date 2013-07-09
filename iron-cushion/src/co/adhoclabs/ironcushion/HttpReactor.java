@@ -19,13 +19,19 @@ import co.adhoclabs.ironcushion.crud.CrudPipelineFactory;
  * 
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
+
+
 public class HttpReactor {
 	private final int numConnections;
 	private final InetSocketAddress databaseAddress;
+	private final String authString;
+	private final String host;
 	
-	public HttpReactor(int numConnections, InetSocketAddress databaseAddress) {
+	public HttpReactor(int numConnections, InetSocketAddress databaseAddress, String authString) {
 		this.numConnections = numConnections;
 		this.databaseAddress = databaseAddress;
+		this.host = databaseAddress.getHostName();
+		this.authString = authString;
 	}
 	
 	private void run(AbstractBenchmarkPipelineFactory channelPipelineFactory)
@@ -37,12 +43,14 @@ public class HttpReactor {
 						Executors.newCachedThreadPool(),
 						Executors.newCachedThreadPool()));
 			clientBootstrap.setPipelineFactory(channelPipelineFactory);
-			for (int i = 0; i < numConnections; ++i) {
-				clientBootstrap.connect(databaseAddress);
-			}
-			
+		    
+		    for (int i = 0; i < numConnections; ++i) {
+		    	clientBootstrap.connect(databaseAddress);
+		    }
+		    
 			// Wait for all connections to complete their tasks.
 			channelPipelineFactory.getCountDownLatch().await();
+			
 			// Shut down executor threads to exit.
 			clientBootstrap.releaseExternalResources();
 		} catch (InterruptedException e) {
@@ -55,7 +63,7 @@ public class HttpReactor {
 			String bulkInsertPath) throws BenchmarkException {
 		// Run the bulk inserts.
 		BulkInsertPipelineFactory bulkInsertPipelineFactory = new BulkInsertPipelineFactory(
-				numConnections, allBulkInsertDocumentGenerators, bulkInsertPath);
+				numConnections, allBulkInsertDocumentGenerators, bulkInsertPath, authString, host);
 		run(bulkInsertPipelineFactory);
 		
 		// Return the times for each connection.
@@ -66,7 +74,7 @@ public class HttpReactor {
 			String crudPath) throws BenchmarkException {
 		// Run the CRUD operations.
 		CrudPipelineFactory crudPipelineFactory = new CrudPipelineFactory(
-				numConnections, allCrudOperations, crudPath);
+				numConnections, allCrudOperations, crudPath, authString, host);
 		run(crudPipelineFactory);
 		
 		// Return the times for each connection.
