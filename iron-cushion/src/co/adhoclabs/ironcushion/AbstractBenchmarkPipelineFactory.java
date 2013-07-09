@@ -2,7 +2,11 @@ package co.adhoclabs.ironcushion;
 
 import java.util.concurrent.CountDownLatch;
 
+import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
+import org.jboss.netty.handler.codec.http.HttpClientCodec;
 
 /**
  * Abstract superclass for channel pipelines used in the benchmark.

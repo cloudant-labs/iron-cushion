@@ -6,6 +6,7 @@ import java.util.List;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpClientCodec;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkPipelineFactory;
@@ -21,9 +22,11 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 	private final String crudPath;
 
 	private int connectionNum;
+	private final String authString;
+	private final String host;
 	
 	public CrudPipelineFactory(int numConnections,
-			List<CrudOperations> allCrudOperations, String crudPath) {
+			List<CrudOperations> allCrudOperations, String crudPath, String authString, String host) {
 		super(numConnections);
 		
 		this.allConnectionStatistics = new ArrayList<CrudConnectionStatistics>(numConnections);
@@ -32,6 +35,8 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 		}
 		this.allCrudOperations = allCrudOperations;
 		this.crudPath = crudPath;
+		this.authString = authString;
+		this.host = host;
 		
 		connectionNum = 0;
 	}
@@ -48,10 +53,11 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 		CrudConnectionStatistics connectionStatistics = allConnectionStatistics.get(connectionNum);
 		CrudOperations crudOperations = allCrudOperations.get(connectionNum);
 		connectionNum++;
-		return Channels.pipeline(
+		ChannelPipeline pipeline =  Channels.pipeline(
 				new HttpClientCodec(),
 				// new HttpContentDecompressor(),
-				new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch)
+				new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch, authString, host)
 				);
+        return pipeline;
 	}
 }

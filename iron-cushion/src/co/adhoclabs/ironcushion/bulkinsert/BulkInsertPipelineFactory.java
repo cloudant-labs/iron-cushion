@@ -6,10 +6,10 @@ import java.util.List;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpClientCodec;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkPipelineFactory;
-
 /**
  * The {@link ChannelPipelineFactory} for connections that perform bulk inserts.
  * 
@@ -21,9 +21,11 @@ public class BulkInsertPipelineFactory extends AbstractBenchmarkPipelineFactory 
 	private final String bulkInsertPath;
 	
 	private int connectionNum;
+	private final String authString;
+	private final String host;
 	
 	public BulkInsertPipelineFactory(int numConnections,
-			List<BulkInsertDocumentGenerator> allBulkInsertDocumentGenerators, String bulkInsertPath) {
+			List<BulkInsertDocumentGenerator> allBulkInsertDocumentGenerators, String bulkInsertPath, String authString, String host) {
 		super(numConnections);
 		
 		this.allConnectionStatistics = new ArrayList<BulkInsertConnectionStatistics>();
@@ -32,7 +34,8 @@ public class BulkInsertPipelineFactory extends AbstractBenchmarkPipelineFactory 
 		}
 		this.allBulkInsertDocumentGenerators = allBulkInsertDocumentGenerators;
 		this.bulkInsertPath = bulkInsertPath;
-		
+		this.authString = authString;
+		this.host = host;
 		connectionNum = 0;
 	}
 
@@ -48,10 +51,11 @@ public class BulkInsertPipelineFactory extends AbstractBenchmarkPipelineFactory 
 		BulkInsertConnectionStatistics connectionStatistics = allConnectionStatistics.get(connectionNum);
 		BulkInsertDocumentGenerator documentGenerator = allBulkInsertDocumentGenerators.get(connectionNum);
 		connectionNum++;
-		return Channels.pipeline(
-				new HttpClientCodec(),
+		
+		ChannelPipeline pipeline = Channels.pipeline(new HttpClientCodec(),
 				// new HttpContentDecompressor(),
-				new BulkInsertHandler(connectionStatistics, documentGenerator, bulkInsertPath, countDownLatch)
+				new BulkInsertHandler(connectionStatistics, documentGenerator, bulkInsertPath, countDownLatch, authString, host)
 				);
+        return pipeline;
 	}
 }

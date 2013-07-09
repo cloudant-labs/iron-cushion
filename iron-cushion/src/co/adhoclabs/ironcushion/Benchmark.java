@@ -7,6 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.handler.codec.base64.Base64;
+import org.jboss.netty.util.CharsetUtil;
+
 import co.adhoclabs.ironcushion.BenchmarkResults.BulkInsertBenchmarkResults;
 import co.adhoclabs.ironcushion.BenchmarkResults.CrudBenchmarkResults;
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics;
@@ -114,9 +119,13 @@ public class Benchmark {
 		} catch (URISyntaxException e) {
 			throw new BenchmarkException(e);
 		}
+		
+		String authString = databaseUri.getUserInfo();
+		if (authString == null) authString = "";
+	    
 		InetSocketAddress databaseAddress = new InetSocketAddress(
 				databaseUri.getHost(), databaseUri.getPort());
-		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress);
+		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString);
 		String[] words = ValueGenerator.createWords(rng);
 		
 		// Perform the bulk inserts.

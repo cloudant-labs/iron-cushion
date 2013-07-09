@@ -3,6 +3,7 @@ package co.adhoclabs.ironcushion.bulkinsert;
 import java.util.concurrent.CountDownLatch;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -11,6 +12,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.codec.base64.Base64;
 import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http.HttpChunk;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -18,6 +20,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.jboss.netty.util.CharsetUtil;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkHandler;
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics.RunningConnectionTimer;
@@ -38,18 +41,20 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	private int insertOperationsCompleted;
 	private boolean readingChunks;
 	private int numJsonBytesReceived;
+	private final String authString;
+	private final String host;
 	
 	public BulkInsertHandler(BulkInsertConnectionStatistics connectionStatistics,
 			BulkInsertDocumentGenerator bulkInsertDocumentGenerator, String bulkInsertPath,
-			CountDownLatch countDownLatch) {
+			CountDownLatch countDownLatch, String authString, String host) {
 		super(countDownLatch);
 		
 		this.connectionStatistics = connectionStatistics;
 		this.bulkInsertDocumentGenerator = bulkInsertDocumentGenerator;
 		this.bulkInsertPath = bulkInsertPath;
-		
+		this.authString = authString;
 		this.sendDataChannelFuture = new SendDataChannelFuture();
-		
+		this.host = host;
 		this.insertOperationsCompleted = 0;
 	}
 
@@ -80,14 +85,29 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 		connectionStatistics.startLocalProcessing();
 		HttpRequest request = new DefaultHttpRequest(
 				HttpVersion.HTTP_1_1, HttpMethod.POST, bulkInsertPath);
+		
+		request.addHeader(HttpHeaders.Names.HOST, host);
 		ChannelBuffer insertBuffer = bulkInsertDocumentGenerator.getBuffer(insertOperationsCompleted);
 		// Assign the headers.
 		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
 		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, insertBuffer.readableBytes());
+		
+		if (authString != "") {
+		    ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(authString, CharsetUtil.UTF_8);
+		    ChannelBuffer encodedAuthChannelBuffer = Base64.encode(authChannelBuffer);
+		    request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic " + encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
+		}
+
 		// Assign the body.
 		request.setContent(insertBuffer);
+		
+//		System.out.println("*****************");
+//		System.out.println("Bulk Insert Handler request...");
+//	    System.out.println(request.toString());
+//		System.out.println("*****************");
+		
 		connectionStatistics.sentJsonBytes(insertBuffer.readableBytes());
 		
 		connectionStatistics.startSendData();
