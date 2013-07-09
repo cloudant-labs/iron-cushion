@@ -50,7 +50,7 @@ public class HttpReactor {
 		    
 			// Wait for all connections to complete their tasks.
 			channelPipelineFactory.getCountDownLatch().await();
-		    //System.out.println("HAZAAAA");
+			
 			// Shut down executor threads to exit.
 			clientBootstrap.releaseExternalResources();
 		} catch (InterruptedException e) {

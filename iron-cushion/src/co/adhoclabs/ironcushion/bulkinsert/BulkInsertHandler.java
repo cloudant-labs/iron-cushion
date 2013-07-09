@@ -35,20 +35,22 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	private final BulkInsertConnectionStatistics connectionStatistics;
 	private final BulkInsertDocumentGenerator bulkInsertDocumentGenerator;
 	private final String bulkInsertPath;
-	
+
 	private final SendDataChannelFuture sendDataChannelFuture;
-	
+
 	private int insertOperationsCompleted;
 	private boolean readingChunks;
 	private int numJsonBytesReceived;
 	private final String authString;
 	private final String host;
-	
-	public BulkInsertHandler(BulkInsertConnectionStatistics connectionStatistics,
-			BulkInsertDocumentGenerator bulkInsertDocumentGenerator, String bulkInsertPath,
-			CountDownLatch countDownLatch, String authString, String host) {
+
+	public BulkInsertHandler(
+			BulkInsertConnectionStatistics connectionStatistics,
+			BulkInsertDocumentGenerator bulkInsertDocumentGenerator,
+			String bulkInsertPath, CountDownLatch countDownLatch,
+			String authString, String host) {
 		super(countDownLatch);
-		
+
 		this.connectionStatistics = connectionStatistics;
 		this.bulkInsertDocumentGenerator = bulkInsertDocumentGenerator;
 		this.bulkInsertPath = bulkInsertPath;
@@ -63,14 +65,15 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	 */
 	private final class SendDataChannelFuture implements ChannelFutureListener {
 		@Override
-		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+		public void operationComplete(ChannelFuture channelFuture)
+				throws Exception {
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteProcessing();
 			}
 		}
 	}
-	
+
 	private void writeNextBulkInsertOrClose(Channel channel) {
 		if (insertOperationsCompleted < bulkInsertDocumentGenerator.size()) {
 			// Perform the next bulk insert operation.
@@ -80,63 +83,67 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 			close(channel);
 		}
 	}
-	
+
 	private void writeNextBulkInsert(Channel channel) {
 		connectionStatistics.startLocalProcessing();
-		HttpRequest request = new DefaultHttpRequest(
-				HttpVersion.HTTP_1_1, HttpMethod.POST, bulkInsertPath);
-		
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1,
+				HttpMethod.POST, bulkInsertPath);
+
 		request.addHeader(HttpHeaders.Names.HOST, host);
-		ChannelBuffer insertBuffer = bulkInsertDocumentGenerator.getBuffer(insertOperationsCompleted);
+		ChannelBuffer insertBuffer = bulkInsertDocumentGenerator
+				.getBuffer(insertOperationsCompleted);
 		// Assign the headers.
-		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
-		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
+		request.setHeader(HttpHeaders.Names.CONNECTION,
+				HttpHeaders.Values.KEEP_ALIVE);
+		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING,
+		// HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
-		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, insertBuffer.readableBytes());
-		
+		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH,
+				insertBuffer.readableBytes());
+
 		if (authString != "") {
-		    ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(authString, CharsetUtil.UTF_8);
-		    ChannelBuffer encodedAuthChannelBuffer = Base64.encode(authChannelBuffer);
-		    request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic " + encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
+			ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(
+					authString, CharsetUtil.UTF_8);
+			ChannelBuffer encodedAuthChannelBuffer = Base64
+					.encode(authChannelBuffer);
+			request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic "
+					+ encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
 		}
 
 		// Assign the body.
 		request.setContent(insertBuffer);
-		
-//		System.out.println("*****************");
-//		System.out.println("Bulk Insert Handler request...");
-//	    System.out.println(request.toString());
-//		System.out.println("*****************");
-		
+
 		connectionStatistics.sentJsonBytes(insertBuffer.readableBytes());
-		
+
 		connectionStatistics.startSendData();
 		ChannelFuture channelFuture = channel.write(request);
 		channelFuture.addListener(sendDataChannelFuture);
 		insertOperationsCompleted++;
 	}
-	
+
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) {
 		// Immediately perform the first bulk insert upon connecting.
 		writeNextBulkInsert(e.getChannel());
 	}
-	
+
 	@Override
-	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e)
+			throws Exception {
 		connectionStatistics.startReceiveData();
-		
+
 		Channel channel = e.getChannel();
 		if (!readingChunks) {
 			HttpResponse response = (HttpResponse) e.getMessage();
-			
+
 			if (response.isChunked()) {
 				numJsonBytesReceived = 0;
 				readingChunks = true;
 			} else {
 				ChannelBuffer content = response.getContent();
 				if (content.readable()) {
-					connectionStatistics.receivedJsonBytes(content.readableBytes());
+					connectionStatistics.receivedJsonBytes(content
+							.readableBytes());
 					writeNextBulkInsertOrClose(channel);
 				}
 			}

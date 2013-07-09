@@ -118,6 +118,9 @@ public class Benchmark {
 		String authString = databaseUri.getUserInfo();
 		if (authString == null) authString = "";
 		
+		
+		System.out.println(parsedArguments.databaseAddress);
+		
 		int port = databaseUri.getPort();
 		if (port < 0) port = 80;
 	    

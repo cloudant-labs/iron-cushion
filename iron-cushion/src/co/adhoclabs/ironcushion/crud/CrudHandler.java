@@ -162,11 +162,6 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			request.setContent(contentBuffer);
 			connectionStatistics.sentJsonBytes(contentBuffer.readableBytes());
 		}
-
-//		System.out.println("*****************");
-//		System.out.println("Bulk Crud Handler request...");
-//	    System.out.println(request.toString());
-//		System.out.println("*****************");
 		
 		connectionStatistics.startSendData();
 		ChannelFuture channelFuture = channel.write(request);
