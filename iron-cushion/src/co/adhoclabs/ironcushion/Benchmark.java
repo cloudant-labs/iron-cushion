@@ -118,15 +118,18 @@ public class Benchmark {
 		String authString = databaseUri.getUserInfo();
 		if (authString == null) authString = "";
 		
-		
-		System.out.println(parsedArguments.databaseAddress);
+		boolean https = false;
+		if (parsedArguments.databaseAddress.contains("https://")) {
+			https = true;
+		}
 		
 		int port = databaseUri.getPort();
-		if (port < 0) port = 80;
-	    
+		if (port < 0 && !https) port = 80;
+		else if (port < 0) port = 443;
+		
 		InetSocketAddress databaseAddress = new InetSocketAddress(
 				databaseUri.getHost(), port);
-		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString);
+		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString, https);
 		String[] words = ValueGenerator.createWords(rng);
 		
 		// Perform the bulk inserts.

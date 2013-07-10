@@ -20,6 +20,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.util.CharsetUtil;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkHandler;
@@ -43,15 +44,17 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	private int numJsonBytesReceived;
 	private final String authString;
 	private final String host;
+	private final boolean https;
 
 	public BulkInsertHandler(
 			BulkInsertConnectionStatistics connectionStatistics,
 			BulkInsertDocumentGenerator bulkInsertDocumentGenerator,
 			String bulkInsertPath, CountDownLatch countDownLatch,
-			String authString, String host) {
+			String authString, String host, boolean https) {
 		super(countDownLatch);
 
 		this.connectionStatistics = connectionStatistics;
+		this.https = https;
 		this.bulkInsertDocumentGenerator = bulkInsertDocumentGenerator;
 		this.bulkInsertPath = bulkInsertPath;
 		this.authString = authString;
@@ -95,8 +98,8 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 		// Assign the headers.
 		request.setHeader(HttpHeaders.Names.CONNECTION,
 				HttpHeaders.Values.KEEP_ALIVE);
-		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING,
-		// HttpHeaders.Values.GZIP);
+		//		 request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING,
+		//		 HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
 		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH,
 				insertBuffer.readableBytes());
@@ -124,6 +127,17 @@ public class BulkInsertHandler extends AbstractBenchmarkHandler {
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) {
 		// Immediately perform the first bulk insert upon connecting.
+		//e.getFuture().awaitUninterruptibly();
+
+		// Get the SslHandler from the pipeline
+		// which were added in SecureChatPipelineFactory.
+		if (https) {
+			SslHandler sslHandler = ctx.getPipeline().get(SslHandler.class);
+
+			// Begin handshake.
+			sslHandler.handshake();
+		}
+
 		writeNextBulkInsert(e.getChannel());
 	}
 
