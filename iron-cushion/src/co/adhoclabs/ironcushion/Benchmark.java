@@ -119,7 +119,7 @@ public class Benchmark {
 		if (authString == null) authString = "";
 		
 		boolean https = false;
-		if (parsedArguments.databaseAddress.contains("https://")) {
+		if (parsedArguments.databaseAddress.startsWith("https:")) {
 			https = true;
 		}
 		
