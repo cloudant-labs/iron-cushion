@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
 import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics;
@@ -26,12 +28,14 @@ public class HttpReactor {
 	private final InetSocketAddress databaseAddress;
 	private final String authString;
 	private final String host;
+	private final boolean https;
 	
-	public HttpReactor(int numConnections, InetSocketAddress databaseAddress, String authString) {
+	public HttpReactor(int numConnections, InetSocketAddress databaseAddress, String authString, boolean https) {
 		this.numConnections = numConnections;
 		this.databaseAddress = databaseAddress;
 		this.host = databaseAddress.getHostName();
 		this.authString = authString;
+		this.https = https;
 	}
 	
 	private void run(AbstractBenchmarkPipelineFactory channelPipelineFactory)
@@ -44,9 +48,19 @@ public class HttpReactor {
 						Executors.newCachedThreadPool()));
 			clientBootstrap.setPipelineFactory(channelPipelineFactory);
 		    
+			ChannelFuture future = null;
+			
 		    for (int i = 0; i < numConnections; ++i) {
-		    	clientBootstrap.connect(databaseAddress);
+		    	future = clientBootstrap.connect(databaseAddress);
 		    }
+		    
+		 // Wait until the connection attempt succeeds or fails.
+	        future.awaitUninterruptibly();
+	        if (!future.isSuccess()) {
+	            future.getCause().printStackTrace();
+	            clientBootstrap.releaseExternalResources();
+	            return;
+	        }
 		    
 			// Wait for all connections to complete their tasks.
 			channelPipelineFactory.getCountDownLatch().await();
@@ -63,7 +77,7 @@ public class HttpReactor {
 			String bulkInsertPath) throws BenchmarkException {
 		// Run the bulk inserts.
 		BulkInsertPipelineFactory bulkInsertPipelineFactory = new BulkInsertPipelineFactory(
-				numConnections, allBulkInsertDocumentGenerators, bulkInsertPath, authString, host);
+				numConnections, allBulkInsertDocumentGenerators, bulkInsertPath, authString, host, https);
 		run(bulkInsertPipelineFactory);
 		
 		// Return the times for each connection.
@@ -74,7 +88,7 @@ public class HttpReactor {
 			String crudPath) throws BenchmarkException {
 		// Run the CRUD operations.
 		CrudPipelineFactory crudPipelineFactory = new CrudPipelineFactory(
-				numConnections, allCrudOperations, crudPath, authString, host);
+				numConnections, allCrudOperations, crudPath, authString, host, https);
 		run(crudPipelineFactory);
 		
 		// Return the times for each connection.

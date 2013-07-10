@@ -19,6 +19,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpVersion;
+import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.util.CharsetUtil;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -38,36 +39,37 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	private final CrudConnectionStatistics connectionStatistics;
 	private final CrudOperations crudOperations;
 	private final String crudPath;
-	
+
 	private final SendCreateDataChannelFuture sendCreateDataChannelFuture;
 	private final SendReadDataChannelFuture sendReadDataChannelFuture;
 	private final SendUpdateDataChannelFuture sendUpdateDataChannelFuture;
 	private final SendDeleteDataChannelFuture sendDeleteDataChannelFuture;
-	
+
 	private JSONObject document;
 	private int crudOperationsCompleted;
 	private final String authString;
 	private final String host;
-	
+	private final boolean https;
+
 	public CrudHandler(CrudConnectionStatistics connectionStatistics,
-			CrudOperations crudOperations, String crudPath, CountDownLatch countDownLatch, String authString, String host) {
+			CrudOperations crudOperations, String crudPath, CountDownLatch countDownLatch, String authString, String host, boolean https) {
 		super(countDownLatch);
-		
+
 		this.connectionStatistics = connectionStatistics;
 		this.crudOperations = crudOperations;
 		this.crudPath = crudPath;
-		
+		this.https = https;
 		this.authString = authString;
 		this.host = host;
-		
+
 		this.sendCreateDataChannelFuture = new SendCreateDataChannelFuture();
 		this.sendReadDataChannelFuture = new SendReadDataChannelFuture();
 		this.sendUpdateDataChannelFuture = new SendUpdateDataChannelFuture();
 		this.sendDeleteDataChannelFuture = new SendDeleteDataChannelFuture();
-		
+
 		this.crudOperationsCompleted = 0;
 	}
-	
+
 	/**
 	 * The The {@link ChannelFutureListener} called after a create operation is sent.
 	 */
@@ -80,7 +82,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			}
 		}
 	}
-	
+
 	/**
 	 * The The {@link ChannelFutureListener} called after a read operation is sent.
 	 */
@@ -93,7 +95,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			}
 		}
 	}
-	
+
 	/**
 	 * The The {@link ChannelFutureListener} called after an update operation is sent.
 	 */
@@ -106,7 +108,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			}
 		}
 	}
-	
+
 	/**
 	 * The The {@link ChannelFutureListener} called after a delete operation is sent.
 	 */
@@ -119,7 +121,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			}
 		}
 	}
-	
+
 	private String getDocumentPath(String documentId) {
 		// TODO: Optimize this.
 		StringBuilder sb = new StringBuilder();
@@ -127,7 +129,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 		sb.append('/').append(documentId);
 		return sb.toString();
 	}
-	
+
 	private String getDocumentDeletePath(String documentId, String revision) {
 		// TODO: Optimize this.
 		StringBuilder sb = new StringBuilder();
@@ -136,38 +138,38 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 		sb.append("?rev=").append(revision);
 		return sb.toString();
 	}
-	
+
 	private void performOperation(Channel channel,
 			String documentPath, HttpMethod method, ChannelBuffer contentBuffer,
 			ChannelFutureListener channelFutureListener) {
 		HttpRequest request = new DefaultHttpRequest(
 				HttpVersion.HTTP_1_1, method, documentPath);
-		
+
 
 		request.addHeader(HttpHeaders.Names.HOST, host);
 		// Assign the headers.
 		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
 		// request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
 		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json");
-		
-	    if (authString != "") {
+
+		if (authString != "") {
 			ChannelBuffer authChannelBuffer = ChannelBuffers.copiedBuffer(authString, CharsetUtil.UTF_8);
-		    ChannelBuffer encodedAuthChannelBuffer = Base64.encode(authChannelBuffer);
-		    request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic " + encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
-	    }
-	    
+			ChannelBuffer encodedAuthChannelBuffer = Base64.encode(authChannelBuffer);
+			request.addHeader(HttpHeaders.Names.AUTHORIZATION, "Basic " + encodedAuthChannelBuffer.toString(CharsetUtil.UTF_8));
+		}
+
 		if (contentBuffer != null) {
 			request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, contentBuffer.readableBytes());
 			// Assign the body if present.
 			request.setContent(contentBuffer);
 			connectionStatistics.sentJsonBytes(contentBuffer.readableBytes());
 		}
-		
+
 		connectionStatistics.startSendData();
 		ChannelFuture channelFuture = channel.write(request);
 		channelFuture.addListener(channelFutureListener);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private void performCreateOperation(Channel channel) {
 		document = crudOperations.getNewDocumentWithoutId();
@@ -178,14 +180,14 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 				document.toString(), CharsetUtil.UTF_8);
 		performOperation(channel, documentPath, HttpMethod.PUT, insertBuffer, sendCreateDataChannelFuture);
 	}
-	
+
 	private void performReadOperation(Channel channel) {
 		document = null;
 		String documentId = String.valueOf(crudOperations.getNextReadId());
 		String documentPath = getDocumentPath(documentId);
 		performOperation(channel, documentPath, HttpMethod.GET, null, sendReadDataChannelFuture);
 	}
-	
+
 	private void performUpdateOperation(Channel channel) {
 		String documentId = (String) document.get("_id");
 		String documentPath = getDocumentPath(documentId);
@@ -194,14 +196,14 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 				document.toString(), CharsetUtil.UTF_8);
 		performOperation(channel, documentPath, HttpMethod.PUT, updateBuffer, sendUpdateDataChannelFuture);
 	}
-	
+
 	private void performDeleteOperation(Channel channel) {
 		String documentId = (String) document.get("_id");
 		String revision = (String) document.get("_rev");
 		String documentPath = getDocumentDeletePath(documentId, revision);
 		performOperation(channel, documentPath, HttpMethod.DELETE, null, sendDeleteDataChannelFuture);
 	}
-	
+
 	private void performNextOperation(Channel channel) {
 		connectionStatistics.startLocalProcessing();
 
@@ -222,7 +224,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			break;
 		}
 	}
-	
+
 	private void performNextOperationOrClose(Channel channel) {
 		if (crudOperationsCompleted < crudOperations.size()) {
 			// Perform the next CRUD operation.
@@ -232,21 +234,21 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			close(channel);
 		}
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private void receivedCreateResponse(JSONObject json) {
 		document.put("_rev", json.get("rev"));
 	}
-	
+
 	private void receivedReadResponse(JSONObject json) {
 		document = json;
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	private void receivedUpdateRepsonse(JSONObject json) {
 		document.put("_rev", json.get("rev"));
 	}
-	
+
 	private JSONObject getJsonReply(HttpResponse response) throws BenchmarkException {
 		if (response.isChunked()) {
 			throw new BenchmarkException("CRUD response is chunked");
@@ -260,15 +262,15 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			throw new BenchmarkException(e);
 		}
 	}
-	
+
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 		// TODO: Method performNextOperation already does this.
 		connectionStatistics.startLocalProcessing();
-		
+
 		Channel channel = e.getChannel();
 		HttpResponse response = (HttpResponse) e.getMessage();
 		JSONObject json = getJsonReply(response);
-		
+
 		switch (crudOperations.getOperation(crudOperationsCompleted)) {
 		case CREATE:
 			receivedCreateResponse(json);
@@ -283,14 +285,21 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 			break;
 		}
 		crudOperations.completedOperation(crudOperationsCompleted);
-		
+
 		crudOperationsCompleted++;
 		performNextOperationOrClose(channel);
 	}
-	
+
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) {
 		// Immediately perform the first CRUD operation upon connecting.
+		if (https) {
+			SslHandler sslHandler = ctx.getPipeline().get(SslHandler.class);
+
+			// Begin handshake.
+			sslHandler.handshake();
+		}
+
 		performNextOperation(e.getChannel());
 	}
 }
