@@ -15,7 +15,7 @@ import co.adhoclabs.ironcushion.AbstractBenchmarkPipelineFactory;
 import co.adhoclabs.ironcushion.securechat.SecureChatSslContextFactory;
 /**
  * The {@link ChannelPipelineFactory} for connections that perform bulk inserts.
- * 
+ *
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
 public class BulkInsertPipelineFactory extends AbstractBenchmarkPipelineFactory {

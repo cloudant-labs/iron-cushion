@@ -29,7 +29,7 @@ import co.adhoclabs.ironcushion.bulkinsert.BulkInsertConnectionStatistics.Runnin
 /**
  * The {@link SimpleChannelUpstreamHandler} implementation for use in the bulk
  * insert {@link ChannelPipeline}.
- * 
+ *
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
 public class BulkInsertHandler extends AbstractBenchmarkHandler {

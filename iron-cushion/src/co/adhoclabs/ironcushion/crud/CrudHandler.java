@@ -32,7 +32,7 @@ import co.adhoclabs.ironcushion.crud.CrudConnectionStatistics.RunningConnectionT
 /**
  * The {@link SimpleChannelUpstreamHandler} implementation for use in the CRUD
  * operation {@link ChannelPipeline}.
- * 
+ *
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
 public class CrudHandler extends AbstractBenchmarkHandler {
@@ -76,7 +76,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	private final class SendCreateDataChannelFuture implements ChannelFutureListener {
 		@Override
 		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteCreateProcessing();
 			}
@@ -89,7 +89,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	private final class SendReadDataChannelFuture implements ChannelFutureListener {
 		@Override
 		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteReadProcessing();
 			}
@@ -102,7 +102,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	private final class SendUpdateDataChannelFuture implements ChannelFutureListener {
 		@Override
 		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteUpdateProcessing();
 			}
@@ -115,7 +115,7 @@ public class CrudHandler extends AbstractBenchmarkHandler {
 	private final class SendDeleteDataChannelFuture implements ChannelFutureListener {
 		@Override
 		public void operationComplete(ChannelFuture channelFuture) throws Exception {
-			// Guard against starting RECEIVE_DATA before this listener runs. 
+			// Guard against starting RECEIVE_DATA before this listener runs.
 			if (connectionStatistics.getRunningConnectionTimer() == RunningConnectionTimer.SEND_DATA) {
 				connectionStatistics.startRemoteDeleteProcessing();
 			}

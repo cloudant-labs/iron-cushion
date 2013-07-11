@@ -16,7 +16,7 @@ import co.adhoclabs.ironcushion.securechat.SecureChatSslContextFactory;
 
 /**
  * The {@link ChannelPipelineFactory} for connections that perform CRUD operations.
- * 
+ *
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
 public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {

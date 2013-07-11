@@ -18,7 +18,7 @@ import co.adhoclabs.ironcushion.crud.CrudPipelineFactory;
 
 /**
  * The networking engine that asynchronously executes HTTP requests.
- * 
+ *
  * @author Michael Parker (michael.g.parker@gmail.com)
  */
 
@@ -37,7 +37,7 @@ public class HttpReactor {
 		this.authString = authString;
 		this.https = https;
 	}
-	
+
 	private void run(AbstractBenchmarkPipelineFactory channelPipelineFactory)
 			throws BenchmarkException {
 		try {
@@ -61,17 +61,17 @@ public class HttpReactor {
 	            clientBootstrap.releaseExternalResources();
 	            return;
 	        }
-		    
+
 			// Wait for all connections to complete their tasks.
 			channelPipelineFactory.getCountDownLatch().await();
-			
+
 			// Shut down executor threads to exit.
 			clientBootstrap.releaseExternalResources();
 		} catch (InterruptedException e) {
 			throw new BenchmarkException(e);
 		}
 	}
-	
+
 	public List<BulkInsertConnectionStatistics> performBulkInserts(
 			List<BulkInsertDocumentGenerator> allBulkInsertDocumentGenerators,
 			String bulkInsertPath) throws BenchmarkException {
@@ -79,18 +79,18 @@ public class HttpReactor {
 		BulkInsertPipelineFactory bulkInsertPipelineFactory = new BulkInsertPipelineFactory(
 				numConnections, allBulkInsertDocumentGenerators, bulkInsertPath, authString, host, https);
 		run(bulkInsertPipelineFactory);
-		
+
 		// Return the times for each connection.
 		return bulkInsertPipelineFactory.getAllConnectionStatistics();
 	}
-	
+
 	public List<CrudConnectionStatistics> performCrudOperations(List<CrudOperations> allCrudOperations,
 			String crudPath) throws BenchmarkException {
 		// Run the CRUD operations.
 		CrudPipelineFactory crudPipelineFactory = new CrudPipelineFactory(
 				numConnections, allCrudOperations, crudPath, authString, host, https);
 		run(crudPipelineFactory);
-		
+
 		// Return the times for each connection.
 		return crudPipelineFactory.getAllConnectionStatistics();
 	}
