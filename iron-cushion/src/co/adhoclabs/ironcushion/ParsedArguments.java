@@ -24,7 +24,7 @@ public class ParsedArguments {
 	 * The seed for the random number generator, or {@code null} if not provided.
 	 */
 	public final Integer seed;
-	
+
 	/**
 	 * The number of documents in each bulk insert operation.
 	 */
@@ -33,7 +33,7 @@ public class ParsedArguments {
 	 * The number of bulk insert operations performed by each connection.
 	 */
 	public final int numBulkInsertOperations;
-	
+
 	/**
 	 * The number of CRUD operations by each connection after bulk inserting finishes.
 	 */
@@ -54,7 +54,7 @@ public class ParsedArguments {
 	 * The relative weight of delete operations to other operations.
 	 */
 	public final int deleteWeight;
-	
+
 	/**
 	 * The JSON file containing field names in documents and their respective types,
 	 * used for create and update operations.
@@ -66,9 +66,13 @@ public class ParsedArguments {
 	 */
 	public final File xmlDocumentSchemaFile;
 
+	// Delay before connections will timeout
+	public final int timeoutDelay;
+
 	/**
 	 * Use {@link #parseArguments(String[])} below.
 	 */
+
 	private ParsedArguments(String databaseAddress,
 			String databaseName,
 			int numConnections,
@@ -81,7 +85,8 @@ public class ParsedArguments {
 			int updateWeight,
 			int deleteWeight,
 			File jsonDocumentSchemaFile,
-			File xmlDocumentSchemaFile) {
+			File xmlDocumentSchemaFile,
+			int timeoutDelay) {
 		this.databaseAddress = databaseAddress;
 		this.databaseName = databaseName;
 		this.numConnections = numConnections;
@@ -95,6 +100,7 @@ public class ParsedArguments {
 		this.deleteWeight = deleteWeight;
 		this.jsonDocumentSchemaFile = jsonDocumentSchemaFile;
 		this.xmlDocumentSchemaFile = xmlDocumentSchemaFile;
+		this.timeoutDelay = timeoutDelay;
 	}
 
 	private static final String DATABASE_ADDRESS_PREFIX = "--database_address=";
@@ -104,7 +110,7 @@ public class ParsedArguments {
 
 	private static final String NUM_DOCUMENTS_PER_BULK_INSERT_PREFIX = "--num_documents_per_bulk_insert=";
 	private static final String NUM_BULK_INSERT_OPERATIONS_PREFIX = "--num_bulk_insert_operations=";
-	
+
 	private static final String NUM_CRUD_OPERATIONS_PREFIX = "--num_crud_operations=";
 	private static final String CREATE_WEIGHT_PREFIX = "--create_weight=";
 	private static final String READ_WEIGHT_PREFIX = "--read_weight=";
@@ -113,16 +119,18 @@ public class ParsedArguments {
 
 	private static final String JSON_DOCUMENT_SCHEMA_FILENAME_PREFIX = "--json_document_schema_filename=";
 	private static final String XML_DOCUMENT_SCHEMA_FILENAME_PREFIX = "--xml_document_schema_filename=";
-	
+
+	private static final String TIMEOUT_DELAY_PREFIX = "--timeout_delay=";
+
 	private static String valueForArgument(String arg, String argumentPrefix) {
 		return arg.substring(argumentPrefix.length());
 	}
-	
+
 	private static int intValueForArgument(String arg, String argumentPrefix) {
 		String value = valueForArgument(arg, argumentPrefix);
 		return Integer.valueOf(value).intValue();
 	}
-	
+
 	public static ParsedArguments parseArguments(String[] args) {
 		String databaseAddress = null;
 		String databaseName = null;
@@ -135,9 +143,10 @@ public class ParsedArguments {
 		int readWeight = 0;
 		int updateWeight = 0;
 		int deleteWeight = 0;
+		int timeoutDelay = 1000;
 		String jsonDocumentSchemaFilename = null;
 		String xmlDocumentSchemaFilename = null;
-		
+
 		for (String arg : args) {
 			if (arg.startsWith(DATABASE_ADDRESS_PREFIX)) {
 				databaseAddress = valueForArgument(arg, DATABASE_ADDRESS_PREFIX);
@@ -165,11 +174,13 @@ public class ParsedArguments {
 				jsonDocumentSchemaFilename = valueForArgument(arg, JSON_DOCUMENT_SCHEMA_FILENAME_PREFIX);
 			} else if (arg.startsWith(XML_DOCUMENT_SCHEMA_FILENAME_PREFIX)) {
 				xmlDocumentSchemaFilename = valueForArgument(arg, XML_DOCUMENT_SCHEMA_FILENAME_PREFIX);
+			} else if (arg.startsWith(TIMEOUT_DELAY_PREFIX)) {
+				timeoutDelay = intValueForArgument(arg, TIMEOUT_DELAY_PREFIX);
 			} else {
 				throw new IllegalArgumentException("Unrecognized command line argument: "  + arg);
 			}
 		}
-		
+
 		// Validate the arguments.
 		if ((databaseAddress == null) || databaseAddress.isEmpty()) {
 			throw new IllegalArgumentException("Value --database_address must be provided");
@@ -218,7 +229,7 @@ public class ParsedArguments {
 			throw new IllegalArgumentException(
 					"Either value --json_document_schema_filename or --xml_document_schema_filename must be provided");
 		}
-		
+
 		File jsonDocumentSchemaFile = null;
 		if (jsonDocumentSchemaFilename != null) {
 			jsonDocumentSchemaFile = new File(jsonDocumentSchemaFilename);
@@ -233,7 +244,7 @@ public class ParsedArguments {
 				throw new IllegalArgumentException("Filename --xml_document_schema_filename does not exist");
 			}
 		}
-		
+
 		return new ParsedArguments(databaseAddress,
 				databaseName,
 				numConnections,
@@ -246,6 +257,7 @@ public class ParsedArguments {
 				updateWeight,
 				deleteWeight,
 				jsonDocumentSchemaFile,
-				xmlDocumentSchemaFile);
+				xmlDocumentSchemaFile,
+				timeoutDelay);
 	}
 }

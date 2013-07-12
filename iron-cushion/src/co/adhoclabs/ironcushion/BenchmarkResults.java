@@ -24,23 +24,23 @@ public abstract class BenchmarkResults {
 		this.totalJsonBytesSent = totalJsonBytesSent;
 		this.totalJsonBytesReceived = totalJsonBytesReceived;
 	}
-	
+
 	private static final double MILLIS_PER_SEC = 1000.0;
-	
+
 	protected static Formatter getFormatter(StringBuilder sb) {
 		return new Formatter(sb, Locale.getDefault());
 	}
-	
+
 	protected static String format(long value) {
 		// Inefficient, but this isn't done while the benchmark is running.
 		return new Formatter().format("%,d", value).toString();
 	}
-	
+
 	protected static String format(double value) {
 		// Inefficient, but this isn't done while the benchmark is running.
 		return new Formatter().format("%,.3f", value).toString();
 	}
-	
+
 	/**
 	 * Benchmark results for bulk insertions.
 	 */
@@ -49,10 +49,12 @@ public abstract class BenchmarkResults {
 		public final SampleStatistics sendDataStatistics;
 		public final SampleStatistics remoteProcessingStatistics;
 		public final SampleStatistics receiveDataStatistics;
-		
+
 		public final double remoteProcessingRate;
 		public final double localInsertRate;
-		
+
+		public final int timeouts;
+
 		private BulkInsertBenchmarkResults(long timeTaken,
 				long totalJsonBytesSent,
 				long totalJsonBytesReceived,
@@ -61,7 +63,8 @@ public abstract class BenchmarkResults {
 				SampleStatistics remoteProcessingStatistics,
 				SampleStatistics receiveDataStatistics,
 				double remoteProcessingRate,
-				double localInsertRate) {
+				double localInsertRate,
+				int timeouts) {
 			super(timeTaken, totalJsonBytesSent, totalJsonBytesReceived);
 
 			this.localProcessingStatistics = localProcessingStatistics;
@@ -70,16 +73,18 @@ public abstract class BenchmarkResults {
 			this.receiveDataStatistics = receiveDataStatistics;
 			this.remoteProcessingRate = remoteProcessingRate;
 			this.localInsertRate = localInsertRate;
+			this.timeouts = timeouts;
 		}
-		
+
 		@Override
 		public String toString() {
 			return toString("");
 		}
-		
+
 		public String toString(String indent) {
 			StringBuilder sb = new StringBuilder();
 			sb.append(indent).append("timeTaken=").append(format(timeTaken / MILLIS_PER_SEC)).append(" secs\n");
+			sb.append(indent).append("connectionTimeouts=").append(format(timeouts)).append("\n");
 			sb.append(indent).append("totalJsonBytesSent=").append(format(totalJsonBytesSent)).append(" bytes\n");
 			sb.append(indent).append("totalJsonBytesReceived=").append(format(totalJsonBytesReceived)).append(" bytes\n");
 			sb.append(indent).append("localProcessing={").append(localProcessingStatistics).append("}\n");
@@ -102,12 +107,14 @@ public abstract class BenchmarkResults {
 		public final SampleStatistics remoteReadProcessingStatistics;
 		public final SampleStatistics remoteUpdateProcessingStatistics;
 		public final SampleStatistics remoteDeleteProcessingStatistics;
-		
+
 		public final double remoteCreateProcessingRate;
 		public final double remoteReadProcessingRate;
 		public final double remoteUpdateProcessingRate;
 		public final double remoteDeleteProcessingRate;
-		
+
+		public final int timeouts;
+
 		public CrudBenchmarkResults(long timeTaken,
 				long totalJsonBytesSent,
 				long totalJsonBytesReceived,
@@ -120,9 +127,11 @@ public abstract class BenchmarkResults {
 				double remoteCreateProcessingRate,
 				double remoteReadProcessingRate,
 				double remoteUpdateProcessingRate,
-				double remoteDeleteProcessingRate) {
+				double remoteDeleteProcessingRate,
+				int timeouts) {
 			super(timeTaken, totalJsonBytesSent, totalJsonBytesReceived);
 
+			this.timeouts = timeouts;
 			this.localProcessingStatistics = localProcessingStatistics;
 			this.sendDataStatistics = sendDataStatistics;
 			this.remoteCreateProcessingStatistics = remoteCreateProcessingStatistics;
@@ -134,15 +143,16 @@ public abstract class BenchmarkResults {
 			this.remoteUpdateProcessingRate = remoteUpdateProcessingRate;
 			this.remoteDeleteProcessingRate = remoteDeleteProcessingRate;
 		}
-		
+
 		@Override
 		public String toString() {
 			return toString("");
 		}
-		
+
 		public String toString(String indent) {
 			StringBuilder sb = new StringBuilder();
 			sb.append(indent).append("timeTaken=").append(format(timeTaken / MILLIS_PER_SEC)).append(" secs\n");
+			sb.append(indent).append("connectionTimeouts=").append(format(timeouts)).append("\n");
 			sb.append(indent).append("totalJsonBytesSent=").append(format(totalJsonBytesSent)).append(" bytes\n");
 			sb.append(indent).append("totalJsonBytesReceived=").append(format(totalJsonBytesReceived)).append(" bytes\n");
 			sb.append(indent).append("localProcessing={").append(localProcessingStatistics).append("}\n");
@@ -171,7 +181,7 @@ public abstract class BenchmarkResults {
 		}
 		return maxTimeTaken;
 	}
-	
+
 	private static long getTotalJsonBytesSent(
 			List<? extends AbstractConnectionStatistics> allConnectionStatistics) {
 		long totalJsonBytesSent = 0;
@@ -180,7 +190,7 @@ public abstract class BenchmarkResults {
 		}
 		return totalJsonBytesSent;
 	}
-	
+
 	private static long getTotalJsonBytesReceived(
 			List<? extends AbstractConnectionStatistics> allConnectionStatistics) {
 		long totalJsonBytesReceived = 0;
@@ -189,7 +199,7 @@ public abstract class BenchmarkResults {
 		}
 		return totalJsonBytesReceived;
 	}
-	
+
 	private static SampleStatistics getLocalProcessingStatistics(
 			List<? extends AbstractConnectionStatistics> allConnectionStatistics) {
 		long[] values = new long[allConnectionStatistics.size()];
@@ -209,7 +219,7 @@ public abstract class BenchmarkResults {
 		}
 		return SampleStatistics.statisticsForPopulation(values);
 	}
-	
+
 	/**
 	 * Returns benchmark results for the connection statistics for bulk inserts.
 	 * 
@@ -222,7 +232,7 @@ public abstract class BenchmarkResults {
 		long timeTaken = getTimeTaken(allConnectionStatistics);
 		long totalJsonBytesSent = getTotalJsonBytesSent(allConnectionStatistics);
 		long totalJsonBytesReceived = getTotalJsonBytesReceived(allConnectionStatistics);
-		
+
 		long[] values = new long[allConnectionStatistics.size()];
 		// Get statistics for local processing.
 		SampleStatistics localProcessingStatistics = getLocalProcessingStatistics(allConnectionStatistics);
@@ -246,15 +256,25 @@ public abstract class BenchmarkResults {
 				parsedArguments.numBulkInsertOperations);
 		double remoteProcessingRate = 0;
 		double localInsertRate = 0;
+
+		//Calculate timeouts
+		int timeouts = 0;
 		for (BulkInsertConnectionStatistics connectionStatistics : allConnectionStatistics) {
-			remoteProcessingRate += (MILLIS_PER_SEC * numBulkInsertedDocs /
-					connectionStatistics.getRemoteProcessingTimeMillis());
+			if (connectionStatistics.getTotalTimeMillis()==0)
+				timeouts++;
+		}
+
+		for (BulkInsertConnectionStatistics connectionStatistics : allConnectionStatistics) {
+			if (connectionStatistics.getRemoteProcessingTimeMillis() != 0)
+				remoteProcessingRate += (MILLIS_PER_SEC * numBulkInsertedDocs /
+						connectionStatistics.getRemoteProcessingTimeMillis());
 			long nonLocalProcessingTime = connectionStatistics.getSendDataTimeMillis() +
 					connectionStatistics.getRemoteProcessingTimeMillis() +
 					connectionStatistics.getReceivedDataTimeMillis();
-			localInsertRate += (MILLIS_PER_SEC * numBulkInsertedDocs / nonLocalProcessingTime);
+			if (nonLocalProcessingTime != 0)
+				localInsertRate += (MILLIS_PER_SEC * numBulkInsertedDocs / nonLocalProcessingTime);
 		}
-		
+
 		return new BulkInsertBenchmarkResults(timeTaken,
 				totalJsonBytesSent,
 				totalJsonBytesReceived,
@@ -263,9 +283,10 @@ public abstract class BenchmarkResults {
 				remoteProcessingStatistics,
 				receiveDataStatistics,
 				remoteProcessingRate,
-				localInsertRate);
+				localInsertRate,
+				timeouts);
 	}
-	
+
 	/**
 	 * Returns benchmark results for the connection statistics for CRUD operations.
 	 * 
@@ -278,7 +299,7 @@ public abstract class BenchmarkResults {
 		long timeTaken = getTimeTaken(allConnectionStatistics);
 		long totalJsonBytesSent = getTotalJsonBytesSent(allConnectionStatistics);
 		long totalJsonBytesReceived = getTotalJsonBytesReceived(allConnectionStatistics);
-		
+
 		long[] values = new long[allConnectionStatistics.size()];
 		// Get statistics for local processing.
 		SampleStatistics localProcessingStatistics = getLocalProcessingStatistics(allConnectionStatistics);
@@ -309,31 +330,42 @@ public abstract class BenchmarkResults {
 		}
 		SampleStatistics remoteDeleteProcessingStatistics = SampleStatistics.statisticsForPopulation(values);
 
+		// Calculate timeouts
+		int timeouts = 0;
+		for (CrudConnectionStatistics connectionStatistics : allConnectionStatistics) {
+			if (connectionStatistics.getTotalTimeMillis()==0)
+				timeouts++;
+		}
+
 		// Calculate the rate of documents created per second.
 		double createRate = 0;
 		for (CrudConnectionStatistics connectionStatistics : allConnectionStatistics) {
-			createRate += (operationCounts.numCreateOperations /
-					(connectionStatistics.getRemoteCreateProcessingTimeMillis() / MILLIS_PER_SEC));
+			if (connectionStatistics.getRemoteCreateProcessingTimeMillis()!=0)
+				createRate += (operationCounts.numCreateOperations /
+						(connectionStatistics.getRemoteCreateProcessingTimeMillis() / MILLIS_PER_SEC));
 		}
 		// Calculate the rate of documents read per second.
 		double readRate = 0;
 		for (CrudConnectionStatistics connectionStatistics : allConnectionStatistics) {
-			readRate += (operationCounts.numReadOperations /
-					(connectionStatistics.getRemoteReadProcessingTimeMillis() / MILLIS_PER_SEC));
+			if (connectionStatistics.getRemoteReadProcessingTimeMillis()!=0)
+				readRate += (operationCounts.numReadOperations /
+						(connectionStatistics.getRemoteReadProcessingTimeMillis() / MILLIS_PER_SEC));
 		}
 		// Calculate the rate of documents updated per second.
 		double updateRate = 0;
 		for (CrudConnectionStatistics connectionStatistics : allConnectionStatistics) {
-			updateRate += (operationCounts.numUpdateOperations /
-					(connectionStatistics.getRemoteUpdateProcessingTimeMillis() / MILLIS_PER_SEC));
+			if (connectionStatistics.getRemoteUpdateProcessingTimeMillis()!=0)
+				updateRate += (operationCounts.numUpdateOperations /
+						(connectionStatistics.getRemoteUpdateProcessingTimeMillis() / MILLIS_PER_SEC));
 		}
 		// Calculate the rate of documents deleted per second.
 		double deleteRate = 0;
 		for (CrudConnectionStatistics connectionStatistics : allConnectionStatistics) {
-			deleteRate += (operationCounts.numDeleteOperations /
-					(connectionStatistics.getRemoteDeleteProcessingTimeMillis() / MILLIS_PER_SEC));
+			if (connectionStatistics.getRemoteDeleteProcessingTimeMillis()!=0)
+				deleteRate += (operationCounts.numDeleteOperations /
+						(connectionStatistics.getRemoteDeleteProcessingTimeMillis() / MILLIS_PER_SEC));
 		}
-		
+
 		return new CrudBenchmarkResults(timeTaken,
 				totalJsonBytesSent,
 				totalJsonBytesReceived,
@@ -346,9 +378,10 @@ public abstract class BenchmarkResults {
 				createRate,
 				readRate,
 				updateRate,
-				deleteRate);
+				deleteRate,
+				timeouts);
 	}
-	
+
 	/**
 	 * Essential statistics about a data set.
 	 */
@@ -359,7 +392,7 @@ public abstract class BenchmarkResults {
 		public final double mean;
 		public final double median;
 		public final double deviation;
-		
+
 		public SampleStatistics(double min, double max, long sum,
 				double mean, double median, double deviation) {
 			this.min = min;
@@ -369,12 +402,12 @@ public abstract class BenchmarkResults {
 			this.median = median;
 			this.deviation = deviation;
 		}
-		
+
 		private static SampleStatistics statisticsForPopulation(long[] values) {
 			// Make a copy of the array before sorting as a courtesy.
 			values = Arrays.copyOf(values, values.length);
 			Arrays.sort(values);
-			
+
 			// Find the minimum and maximum.
 			long min = values[0];
 			long max = values[values.length - 1];
@@ -401,10 +434,10 @@ public abstract class BenchmarkResults {
 			}
 			double variance = numerator / values.length;
 			double deviation = Math.sqrt(variance);
-			
+
 			return new SampleStatistics(min, max, sum, mean, median, deviation);
 		}
-		
+
 		public String toString() {
 			StringBuilder sb = new StringBuilder();
 			sb.append("min=").append(format(min / MILLIS_PER_SEC)).append(" secs, ");
@@ -413,7 +446,7 @@ public abstract class BenchmarkResults {
 			sb.append("sd=").append(format(deviation / MILLIS_PER_SEC)).append(" secs");
 			return sb.toString();
 		}
-		
+
 		public String toString(String title) {
 			StringBuilder sb = new StringBuilder();
 			sb.append(title).append(": ").append(toString());

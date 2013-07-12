@@ -129,7 +129,7 @@ public class Benchmark {
 
 		InetSocketAddress databaseAddress = new InetSocketAddress(
 				databaseUri.getHost(), port);
-		HttpReactor httpReactor = new HttpReactor(parsedArguments.numConnections, databaseAddress, authString, https);
+		HttpReactor httpReactor = new HttpReactor(parsedArguments, databaseAddress, authString, https);
 		String[] words = ValueGenerator.createWords(rng);
 
 		// Perform the bulk inserts.

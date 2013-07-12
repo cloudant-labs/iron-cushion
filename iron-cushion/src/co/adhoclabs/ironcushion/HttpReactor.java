@@ -30,12 +30,15 @@ public class HttpReactor {
 	private final String host;
 	private final boolean https;
 	
-	public HttpReactor(int numConnections, InetSocketAddress databaseAddress, String authString, boolean https) {
-		this.numConnections = numConnections;
+	private final int timeoutDelay;
+	
+	public HttpReactor(ParsedArguments parsedArguments, InetSocketAddress databaseAddress, String authString, boolean https) {
+		this.numConnections = parsedArguments.numConnections;
 		this.databaseAddress = databaseAddress;
 		this.host = databaseAddress.getHostName();
 		this.authString = authString;
 		this.https = https;
+		this.timeoutDelay = parsedArguments.timeoutDelay;
 	}
 
 	private void run(AbstractBenchmarkPipelineFactory channelPipelineFactory)
@@ -48,6 +51,8 @@ public class HttpReactor {
 						Executors.newCachedThreadPool()));
 			clientBootstrap.setPipelineFactory(channelPipelineFactory);
 		    
+			//Timeout control
+			clientBootstrap.setOption("connectTimeoutMillis", timeoutDelay);
 			ChannelFuture future = null;
 			
 		    for (int i = 0; i < numConnections; ++i) {

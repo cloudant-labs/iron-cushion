@@ -12,6 +12,7 @@ It is written in [Java](http://www.java.com) for version 5.0 and higher, depends
 * `json_document_schema_filename`: A file containing JSON describing the schema of documents created during the benchmark.
 * `xml_document_schema_filename`: A file containing XML describing the schema of documents created during the benchmark.
 * `seed`: An optional integer flag that specifies the seed to use for the random number generator.
+* 'timeout_delay': Flag determines the delay after which workers connections will timeout
 
 Either `json_document_schema_filename` or `xml_document_schema_filename` must be provided. For details on the contents of these files, see "Document Generation" below.
 
