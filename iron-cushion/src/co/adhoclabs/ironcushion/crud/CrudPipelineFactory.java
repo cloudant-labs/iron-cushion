@@ -8,7 +8,9 @@ import javax.net.ssl.SSLEngine;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpClientCodec;
+import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
 import org.jboss.netty.handler.ssl.SslHandler;
 
 import co.adhoclabs.ironcushion.AbstractBenchmarkPipelineFactory;
@@ -66,7 +68,8 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 			ChannelPipeline pipeline =  Channels.pipeline(
 					new SslHandler(engine),
 					new HttpClientCodec(),
-					// new HttpContentDecompressor(),
+					//new HttpContentDecompressor(),
+					new HttpChunkAggregator(10485760),
 					new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch, authString, host, true)
 					);
 
@@ -74,7 +77,8 @@ public class CrudPipelineFactory extends AbstractBenchmarkPipelineFactory {
 		} else {
 			ChannelPipeline pipeline =  Channels.pipeline(
 					new HttpClientCodec(),
-					// new HttpContentDecompressor(),
+					//new HttpContentDecompressor(),
+					new HttpChunkAggregator(10485760),
 					new CrudHandler(connectionStatistics, crudOperations, crudPath, countDownLatch, authString, host, false)
 					);
 
